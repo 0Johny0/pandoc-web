@@ -17,6 +17,6 @@ COPY templates/ templates/
 
 RUN mkdir -p /app/projects /app/output /app/uploads
 
+ENTRYPOINT []
 EXPOSE 5000
-
 CMD ["python3", "app.py"]

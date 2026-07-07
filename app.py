@@ -90,6 +90,14 @@ def _resolve_includes(filepath, depth=0, seen=None):
 def index():
     return render_template("index.html")
 
+# ── Image API ───────────────────────────────────────────────
+
+@app.route("/images/<path:filename>")
+def serve_images(filename):
+    fp = IMAGES / filename
+    if not fp.is_file():
+        return jsonify({"error": "Not found"}), 404
+    return send_file(fp)
 
 # ── File API ───────────────────────────────────────────
 

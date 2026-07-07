@@ -70,48 +70,47 @@ def _resolve_includes(filepath, depth=0, seen=None):
 
 
 def _extract_meta(content):
-    """
-    从 #set document(...) 中提取 title 和 author。
-    逐行收集、括号深度跟踪，兼容直引号和弯引号。
-    """
+    """从 #set document(...) 中提取 title 和 author，纯字符串操作。"""
     title, author = "", ""
-    Q = r'[\u201c\u201d"]'
-    NQ = r'[^\u201c\u201d"]'
-    in_doc, depth, buf = False, 0, []
 
-    for line in content.splitlines():
-        s = line.strip()
-        if not in_doc:
-            if re.match(r'#set\s+document\s*$$', s):
-                in_doc = True
-                depth = s.count('(') - s.count(')')
-                buf.append(s)
-                if depth <= 0:
+    doc_pos = content.find('#set document')
+    if doc_pos >= 0:
+        # ---- title ----
+        idx = content.find('title:', doc_pos)
+        if idx >= 0:
+            eol = content.find('\n', idx)
+            seg = content[idx:eol] if eol >= 0 else content[idx:]
+            q1 = seg.find('"')
+            if q1 >= 0:
+                q2 = seg.find('"', q1 + 1)
+                if q2 >= 0:
+                    title = seg[q1 + 1:q2]
+
+        # ---- author ----
+        idx = content.find('author:', doc_pos)
+        if idx >= 0:
+            next_set = content.find('\n#set', idx)
+            seg = content[idx:next_set] if next_set >= 0 else content[idx:]
+            parts, pos = [], 0
+            while True:
+                q1 = seg.find('"', pos)
+                if q1 < 0:
                     break
-            continue
-        depth += s.count('(') - s.count(')')
-        buf.append(s)
-        if depth <= 0:
-            break
+                q2 = seg.find('"', q1 + 1)
+                if q2 < 0:
+                    break
+                parts.append(seg[q1 + 1:q2])
+                pos = q2 + 1
+            if parts:
+                author = '、'.join(parts)
 
-    block = '\n'.join(buf)
-
-    tm = re.search(rf'title:\s*{Q}({NQ}*){Q}', block)
-    if tm:
-        title = tm.group(1)
-
-    am = re.search(rf'author:\s*{Q}({NQ}*){Q}', block)
-    if am:
-        author = am.group(1)
-    else:
-        am = re.search(r'author:\s*\(([^)]*)$$', block)
-        if am:
-            author = '、'.join(re.findall(rf'{Q}({NQ}*){Q}', am.group(1)))
-
+    # 回退: 第一个 = 标题
     if not title:
-        hm = re.search(r'^=\s+(.+)$', content, re.MULTILINE)
-        if hm:
-            title = hm.group(1).strip()
+        for line in content.splitlines():
+            s = line.strip()
+            if s.startswith('= ') and not s.startswith('== '):
+                title = s[2:].strip()
+                break
 
     return title, author
 

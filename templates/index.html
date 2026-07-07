@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pandoc Web — 转换器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;600&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0c0c0c;--surface:#161616;--border:#2a2a2a;
+  --accent:#e8b931;--accent-dim:#c49b1a;
+  --text:#e8e4dc;--text-muted:#6b6560;--error:#d44;
+  --font-display:'Cormorant Garamond',Georgia,serif;
+  --font-mono:'DM Mono','Courier New',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-weight:300;font-size:14px;min-height:100vh;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E")}
+
+header{padding:50px 0 10px;text-align:center;animation:fadeDown .8s ease}
+header h1{font-family:var(--font-display);font-weight:300;font-size:3.2rem;letter-spacing:.08em;color:var(--accent)}
+header nav{margin-top:14px;display:flex;justify-content:center;gap:32px}
+header nav a{font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text-muted);text-decoration:none;padding-bottom:4px;border-bottom:2px solid transparent;transition:all .25s}
+header nav a:hover{color:var(--text)}
+header nav a.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+main{flex:1;max-width:640px;width:100%;margin:36px auto;padding:0 24px;animation:fadeUp .6s ease .2s forwards;opacity:0}
+.card{background:var(--surface);border:1px solid var(--border);padding:40px;position:relative}
+.card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--accent)}
+label{display:block;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px}
+
+.dropzone{border:1px dashed var(--border);padding:40px;text-align:center;cursor:pointer;transition:all .3s;margin-bottom:32px}
+.dropzone:hover,.dropzone.dragover{border-color:var(--accent);background:rgba(232,185,49,.03)}
+.dropzone .icon{font-size:2rem;color:var(--text-muted);margin-bottom:10px;display:block}
+.dropzone p{color:var(--text-muted);font-size:.8rem}
+.dropzone .filename{color:var(--accent);font-size:.9rem;margin-top:8px;word-break:break-all}
+#fileInput{display:none}
+
+.format-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:32px}
+.format-btn{background:transparent;border:1px solid var(--border);color:var(--text-muted);font-family:var(--font-mono);font-size:.75rem;letter-spacing:.1em;padding:10px 20px;cursor:pointer;transition:all .25s;text-transform:uppercase}
+.format-btn:hover{border-color:var(--accent);color:var(--text)}
+.format-btn.active{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:400}
+
+.convert-btn{display:block;width:100%;background:var(--accent);border:none;color:var(--bg);font-family:var(--font-mono);font-size:.85rem;font-weight:400;letter-spacing:.2em;text-transform:uppercase;padding:16px;cursor:pointer;transition:all .3s}
+.convert-btn:hover{background:var(--accent-dim);letter-spacing:.3em}
+.convert-btn:disabled{opacity:.3;cursor:not-allowed;letter-spacing:.2em}
+
+.status{text-align:center;margin-top:20px;font-size:.8rem;min-height:20px;color:var(--text-muted)}
+.status.error{color:var(--error)}
+.status.success{color:var(--accent)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--text-muted);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+
+footer{text-align:center;padding:30px;color:var(--text-muted);font-size:.7rem;letter-spacing:.15em}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Pandoc Web</h1>
+  <nav>
+    <a href="/" class="active">转换器</a>
+    <a href="/editor">编辑器</a>
+  </nav>
+</header>
+
+<main>
+  <div class="card">
+    <form id="convertForm" enctype="multipart/form-data">
+      <label>1 &mdash; 选择文件</label>
+      <div class="dropzone" id="dropzone">
+        <span class="icon">&#8593;</span>
+        <p>拖放文件至此处，或点击上传</p>
+        <div class="filename" id="fileName"></div>
+        <input type="file" id="fileInput" name="file"
+               accept=".typ,.md,.markdown,.txt,.html,.htm,.docx,.epub,.tex,.rst">
+      </div>
+
+      <label>2 &mdash; 目标格式</label>
+      <div class="format-row" id="formatRow">
+        <button type="button" class="format-btn" data-fmt="pdf">PDF</button>
+        <button type="button" class="format-btn" data-fmt="html">HTML</button>
+        <button type="button" class="format-btn" data-fmt="docx">DOCX</button>
+        <button type="button" class="format-btn" data-fmt="epub">EPUB</button>
+        <button type="button" class="format-btn" data-fmt="md">Markdown</button>
+        <button type="button" class="format-btn" data-fmt="tex">LaTeX</button>
+      </div>
+
+      <label>3 &mdash; 转换</label>
+      <button type="submit" class="convert-btn" id="convertBtn" disabled>转 换</button>
+      <div class="status" id="status"></div>
+    </form>
+  </div>
+</main>
+
+<footer>Powered by Pandoc &amp; Typst</footer>
+
+<script>
+const dropzone=document.getElementById('dropzone'),
+  fileInput=document.getElementById('fileInput'),
+  fileName=document.getElementById('fileName'),
+  formatRow=document.getElementById('formatRow'),
+  btn=document.getElementById('convertBtn'),
+  status=document.getElementById('status'),
+  form=document.getElementById('convertForm');
+
+let selectedFile=null,selectedFmt=null;
+const TYPST_ONLY=['.typ'];
+
+function updateBtn(){btn.disabled=!(selectedFile&&selectedFmt)}
+
+function updateFormatButtons(){
+  const ext=selectedFile?'.'+selectedFile.name.split('.').pop().toLowerCase():'';
+  document.querySelectorAll('.format-btn').forEach(b=>{
+    if(TYPST_ONLY.includes(ext)){
+      b.style.display=b.dataset.fmt==='pdf'?'':'none';
+      if(b.classList.contains('active')&&b.dataset.fmt!=='pdf'){b.classList.remove('active');selectedFmt=null}
+    }else{b.style.display=''}
+  });
+}
+
+dropzone.addEventListener('click',()=>fileInput.click());
+dropzone.addEventListener('dragover',e=>{e.preventDefault();dropzone.classList.add('dragover')});
+dropzone.addEventListener('dragleave',()=>dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop',e=>{e.preventDefault();dropzone.classList.remove('dragover');if(e.dataTransfer.files.length){fileInput.files=e.dataTransfer.files;handleFile(e.dataTransfer.files[0])}});
+fileInput.addEventListener('change',()=>{if(fileInput.files.length)handleFile(fileInput.files[0])});
+
+function handleFile(f){
+  selectedFile=f;fileName.textContent=f.name;updateFormatButtons();
+  if(TYPST_ONLY.includes('.'+f.name.split('.').pop().toLowerCase()))selectFmt('pdf');
+  updateBtn();
+}
+
+formatRow.addEventListener('click',e=>{const b=e.target.closest('.format-btn');if(b)selectFmt(b.dataset.fmt)});
+function selectFmt(fmt){
+  document.querySelectorAll('.format-btn').forEach(x=>x.classList.remove('active'));
+  const t=document.querySelector(`.format-btn[data-fmt="${fmt}"]`);if(t)t.classList.add('active');
+  selectedFmt=fmt;updateBtn();
+}
+
+form.addEventListener('submit',async e=>{
+  e.preventDefault();if(!selectedFile||!selectedFmt)return;
+  const fd=new FormData();fd.append('file',selectedFile);fd.append('target',selectedFmt);
+  btn.disabled=true;status.className='status';status.innerHTML='<span class="spinner"></span> 转换中…';
+  try{
+    const resp=await fetch('/convert',{method:'POST',body:fd});
+    if(!resp.ok){const j=await resp.json();throw new Error(j.error||'转换失败')}
+    const blob=await resp.blob();const baseName=selectedFile.name.replace(/\.[^.]+$/,'');
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');
+    a.href=url;a.download=baseName+'.'+selectedFmt;a.click();URL.revokeObjectURL(url);
+    status.className='status success';status.textContent='转换完成，文件已下载';
+  }catch(err){status.className='status error';status.textContent=err.message}
+  finally{updateBtn()}
+});
+</script>
+</body>
+</html>

@@ -7,7 +7,7 @@ services:
     volumes:
       - ./projects:/app/projects
       - /usr/share/fonts:/usr/share/fonts:ro
-      # macOS 用下面两行替代上面一行：
+      # macOS:
       # - /System/Library/Fonts:/System/Library/Fonts:ro
       # - /Library/Fonts:/Library/Fonts:ro
     environment:

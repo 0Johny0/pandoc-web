@@ -124,7 +124,7 @@ def preview():
     content = fp.read_text("utf-8")
     result = subprocess.run(
         ["pandoc", "-f", "typst", "-t", "html5",
-         "--wrap=none", "--highlight-style=tango"],
+         "--wrap=none", "--syntax-highlighting=tango"],
         input=content,
         capture_output=True,
         text=True,
@@ -178,7 +178,7 @@ def export():
         if target == "epub":
             pandoc_args += ["--toc", "--metadata", f"title={doc_title}"]
         elif target == "html":
-            pandoc_args += ["-s", "--highlight-style=tango",
+            pandoc_args += ["-s", "--syntax-highlighting=tango",
                             "--metadata", f"title={doc_title}"]
         elif target == "md":
             pandoc_args += ["--wrap=none"]

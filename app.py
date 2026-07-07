@@ -72,20 +72,30 @@ def _resolve_includes(filepath, depth=0, seen=None):
 def _extract_meta(content):
     """
     从 #set document(...) 中提取 title 和 author。
-    回退: title → 第一个 = 标题; author → 空字符串。
+    使用手动括号匹配，正确处理嵌套括号。
     """
     title, author = "", ""
-    m = re.search(r'#set\s+document$$(.+?)$$', content, re.DOTALL)
+    m = re.search(r'#set\s+document\s*$$', content)
     if m:
-        block = m.group(1)
-        tm = re.search(r'title:\s*"([^"]*)"', block)
-        if tm:
-            title = tm.group(1)
-        am = re.search(r'author:\s*"([^"]*)"', block)
-        if not am:
-            am = re.search(r'author:\s*$$([^)]*)$$', block)
-        if am:
-            author = '、'.join(re.findall(r'"([^"]*)"', am.group(1)))
+        start = m.end()
+        depth, pos = 1, start
+        while pos < len(content) and depth > 0:
+            ch = content[pos]
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth -= 1
+            pos += 1
+        if depth == 0:
+            block = content[start:pos - 1]
+            tm = re.search(r'title:\s*"([^"]*)"', block)
+            if tm:
+                title = tm.group(1)
+            am = re.search(r'author:\s*"([^"]*)"', block)
+            if not am:
+                am = re.search(r'author:\s*\(([^)]*)$$', block)
+            if am:
+                author = '、'.join(re.findall(r'"([^"]*)"', am.group(1)))
     if not title:
         hm = re.search(r'^=\s+(.+)$', content, re.MULTILINE)
         if hm:

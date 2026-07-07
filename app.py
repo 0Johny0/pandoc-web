@@ -224,6 +224,28 @@ def preview():
 
     return result.stdout, 200, {"Content-Type": "text/html; charset=utf-8"}
 
+# ── Preview (typst → PDF) ─────────────────────
+
+@app.route("/api/preview-pdf", methods=["POST"])
+def preview_pdf():
+    filename = request.json.get("filename", "")
+    fp = PROJECTS / filename
+    if not fp.is_file():
+        return jsonify({"error": "文件不存在"}), 404
+
+    stem = Path(filename).stem
+    pdf_path = OUTPUT / f"_preview_{stem}.pdf"
+
+    result = subprocess.run(
+        ["typst", "compile", str(fp), str(pdf_path)],
+        capture_output=True, text=True, timeout=30,
+        env=_typst_env(),
+    )
+    if result.returncode != 0:
+        return jsonify({"error": result.stderr.strip()})
+
+    ts = os.path.getmtime(pdf_path)
+    return jsonify({"url": f"/dl/{pdf_path.name}?t={ts}"})
 
 # ── Export ─────────────────────────────────────────────
 
